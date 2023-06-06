@@ -6,11 +6,13 @@ from PyQt5.QtSerialPort import QSerialPort, QSerialPortInfo
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QMessageBox, QWidget, \
     QPushButton, QComboBox, QLabel, QTextEdit, QHBoxLayout, QCheckBox
 
-baudRate = 115200
-prefixes = []  # сюда можно добавлять дополнительные префиксы
+baudRate = 115200  # НЕ ЗАБУДЬ УСТАНОВИТЬ СКОРОСТЬ ПОРТА !
+prefixes = ['+INFO', '+POUT', '+Warning', '+PXL']  # ПРЕФИКСЫ ДОБАВЛЯТЬ СЮДА
 
 
 class MainWindow(QMainWindow):
+    global prefixes, baudRate
+
     def __init__(self):
         super().__init__()
 
@@ -52,17 +54,14 @@ class MainWindow(QMainWindow):
         self.filter_label = QLabel("Фильтр префиксов:", self)
         self.filter_layout.addWidget(self.filter_label)
 
-        self.info_checkbox = QCheckBox("+INFO", self)
-        self.filter_layout.addWidget(self.info_checkbox)
+        self.prefixes = prefixes
+        self.prefix_checkboxes = []
 
-        self.pout_checkbox = QCheckBox("+POUT", self)
-        self.filter_layout.addWidget(self.pout_checkbox)
-
-        self.warning_checkbox = QCheckBox("+Warning", self)
-        self.filter_layout.addWidget(self.warning_checkbox)
-
-        self.pxl_checkbox = QCheckBox("+PXL", self)
-        self.filter_layout.addWidget(self.pxl_checkbox)
+        for prefix in self.prefixes:
+            checkbox = QCheckBox(prefix, self)
+            checkbox.setChecked(False)
+            self.filter_layout.addWidget(checkbox)
+            self.prefix_checkboxes.append(checkbox)
 
         self.all_checkbox = QCheckBox("ALL", self)
         self.filter_layout.addWidget(self.all_checkbox)
@@ -89,23 +88,27 @@ class MainWindow(QMainWindow):
 
     def connect_button_clicked(self):
         port_name = self.port_combo_box.currentText()
-
+        QMessageBox.critical(self, "Ошибка скорости порта", "Установите правильную скорость порта") \
+            if baudRate == 0 or type(baudRate) != int else 0
         if port_name:
-            self.serial = QSerialPort()
-            self.serial.setPortName(port_name)
-            self.serial.setBaudRate(baudRate)
-            self.serial.readyRead.connect(self.read_from_serial)
+            try:
+                self.serial = QSerialPort()
+                self.serial.setPortName(port_name)
+                self.serial.setBaudRate(baudRate)
+                self.serial.readyRead.connect(self.read_from_serial)
 
-            if self.serial.open(QIODevice.ReadWrite):
-                self.connect_button.setEnabled(False)
-                self.disconnect_button.setEnabled(True)
-                self.refresh_button.setEnabled(False)
-                self.port_combo_box.setEnabled(False)
-                self.port_label.setText(f"Подключен к порту: {port_name}")
-                self.log_text_edit.append(f"[INFO] Подключен к порту: {port_name}\n")
-                self.read_from_serial()
-            else:
-                QMessageBox.critical(self, "Ошибка", "Не удалось подключиться к порту.")
+                if self.serial.open(QIODevice.ReadWrite):
+                    self.connect_button.setEnabled(False)
+                    self.disconnect_button.setEnabled(True)
+                    self.refresh_button.setEnabled(False)
+                    self.port_combo_box.setEnabled(False)
+                    self.port_label.setText(f"Подключен к порту: {port_name}")
+                    self.log_text_edit.append(f"[INFO] Подключен к порту: {port_name}\n")
+                    self.read_from_serial()
+                else:
+                    QMessageBox.critical(self, "Ошибка", "Не удалось подключиться к порту.")
+            except:
+                QMessageBox.critical(self, "Ошибка подключения к COM порту", "Ошибка подключения к COM порту")
         else:
             QMessageBox.warning(self, "Предупреждение", "Выберите порт для подключения.")
 
@@ -122,39 +125,19 @@ class MainWindow(QMainWindow):
     def read_from_serial(self):
         if self.serial is not None and self.serial.isOpen():
             # далее есть костыли (!)
-
-            # 1 способ решения:
-            # data = self.serial.readAll()
-            # # print(data)
-            # if data:
-            #     text = data.data().decode('ascii', errors='ignore')
-            #     print(text)
-            #     self.process_data(text)
-
-            # 2 способ решения (рабочий)
             if self.serial.canReadLine():
                 data = self.serial.readLine()
                 if data:
-                    text = data.data().decode('ascii').strip()  # или использовать это
+                    text = data.data().decode('ascii', errors='ignore').strip()  # или использовать это
                     # text = str(data, 'ascii).strip()  # или это
                     # print(text)
                     self.process_data(text)
 
     def process_data(self, data):
-        global prefixes
-
         if not self.all_checkbox.isChecked():
-            prefixes.append('+INFO') if self.info_checkbox.isChecked() else \
-                (prefixes.pop(prefixes.index('+INFO')) if '+INFO' in prefixes else 0)
-            prefixes.append('+POUT') if self.pout_checkbox.isChecked() else \
-                (prefixes.pop(prefixes.index('+INFO')) if '+POUT' in prefixes else 0)
-            prefixes.append('+Warning') if self.warning_checkbox.isChecked() else \
-                (prefixes.pop(prefixes.index('+INFO')) if '+Warning' in prefixes else 0)
-            prefixes.append('+PXL') if self.pxl_checkbox.isChecked() else \
-                (prefixes.pop(prefixes.index('+INFO')) if '+PXL' in prefixes else 0)
-
-            for prefix in prefixes:
-                if data.startswith(prefix):
+            for checkbox in self.prefix_checkboxes:
+                prefix = checkbox.text()
+                if checkbox.isChecked() and data.startswith(prefix):
                     text = f'{datetime.datetime.now()}:    {data}\n'
                     self.log_text_edit.append(text)
                     break
