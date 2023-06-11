@@ -4,10 +4,10 @@ import sys
 from PyQt5.QtCore import QIODevice
 from PyQt5.QtSerialPort import QSerialPort, QSerialPortInfo
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QMessageBox, QWidget, \
-    QPushButton, QComboBox, QLabel, QTextEdit, QHBoxLayout, QCheckBox
+    QPushButton, QComboBox, QLabel, QTextEdit, QHBoxLayout, QCheckBox, QGridLayout
 
-baudRate = 115200  # НЕ ЗАБУДЬ УСТАНОВИТЬ СКОРОСТЬ ПОРТА !
-prefixes = ['+INFO', '+POUT', '+Warning', '+PXL']  # ПРЕФИКСЫ ДОБАВЛЯТЬ СЮДА
+baudRate = 500000  # НЕ ЗАБУДЬ УСТАНОВИТЬ СКОРОСТЬ ПОРТА !
+prefixes = ['INFO', 'POUT', 'Warning', 'PXL', 'CORE', 'L3_ROOT', 'L3_OnRX', 'L3_OnEr', 'L3_OnRst', 'L2_OnRX', 'L2_OnEr']  # ПРЕФИКСЫ ДОБАВЛЯТЬ СЮДА
 
 
 class MainWindow(QMainWindow):
@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
 
         self.disconnect_button.clicked.connect(self.disconnect_button_clicked)
 
-        self.filter_layout = QHBoxLayout()
+        self.filter_layout = QGridLayout()
         self.layout.addLayout(self.filter_layout)
 
         self.filter_label = QLabel("Фильтр префиксов:", self)
@@ -56,12 +56,14 @@ class MainWindow(QMainWindow):
 
         self.prefixes = prefixes
         self.prefix_checkboxes = []
-
+        
+        self.prefixes_idx = 1
         for prefix in self.prefixes:
             checkbox = QCheckBox(prefix, self)
             checkbox.setChecked(False)
-            self.filter_layout.addWidget(checkbox)
+            self.filter_layout.addWidget(checkbox, int(self.prefixes_idx / 7), int(self.prefixes_idx % 7))
             self.prefix_checkboxes.append(checkbox)
+            self.prefixes_idx += 1
 
         self.all_checkbox = QCheckBox("ALL", self)
         self.filter_layout.addWidget(self.all_checkbox)
@@ -136,7 +138,7 @@ class MainWindow(QMainWindow):
     def process_data(self, data):
         if not self.all_checkbox.isChecked():
             for checkbox in self.prefix_checkboxes:
-                prefix = checkbox.text()
+                prefix = "+" + checkbox.text()
                 if checkbox.isChecked() and data.startswith(prefix):
                     text = f'{datetime.datetime.now()}:    {data}\n'
                     self.log_text_edit.append(text)
