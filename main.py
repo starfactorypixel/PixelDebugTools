@@ -7,7 +7,9 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QMessageBox,
     QPushButton, QComboBox, QLabel, QTextEdit, QHBoxLayout, QCheckBox, QGridLayout
 
 baudRate = 500000  # НЕ ЗАБУДЬ УСТАНОВИТЬ СКОРОСТЬ ПОРТА !
-prefixes = ['INFO', 'POUT', 'Warning', 'PXL', 'CORE', 'L3_ROOT', 'L3_OnRX', 'L3_OnEr', 'L3_OnRst', 'L2_OnRX', 'L2_OnEr']  # ПРЕФИКСЫ ДОБАВЛЯТЬ СЮДА
+prefixes = [
+    'INFO', 'POUT', 'Warning', 'PXL', 'CORE', 'L3_ROOT', 'L3_OnRX', 'L3_OnEr', 'L3_OnRst', 'L2_OnRX', 'L2_OnEr'
+]  # ПРЕФИКСЫ ДОБАВЛЯТЬ СЮДА
 
 
 class MainWindow(QMainWindow):
@@ -56,7 +58,7 @@ class MainWindow(QMainWindow):
 
         self.prefixes = prefixes
         self.prefix_checkboxes = []
-        
+
         self.prefixes_idx = 1
         for prefix in self.prefixes:
             checkbox = QCheckBox(prefix, self)
@@ -82,6 +84,9 @@ class MainWindow(QMainWindow):
         self.serial = None
 
     def refresh_ports(self):
+        """
+        Перезагрузка доступных COM портов
+        """
         self.port_combo_box.clear()
 
         ports = QSerialPortInfo.availablePorts()
@@ -89,6 +94,9 @@ class MainWindow(QMainWindow):
             self.port_combo_box.addItem(port.portName())
 
     def connect_button_clicked(self):
+        """
+        Подключение к COM порту при нажатии кнопки
+        """
         port_name = self.port_combo_box.currentText()
         QMessageBox.critical(self, "Ошибка скорости порта", "Установите правильную скорость порта") \
             if baudRate == 0 or type(baudRate) != int else 0
@@ -110,11 +118,14 @@ class MainWindow(QMainWindow):
                 else:
                     QMessageBox.critical(self, "Ошибка", "Не удалось подключиться к порту.")
             except:
-                QMessageBox.critical(self, "Ошибка подключения к COM порту", "Ошибка подключения к COM порту")
+                QMessageBox.critical(self, "Ошибка", "Ошибка подключения к COM порту")
         else:
             QMessageBox.warning(self, "Предупреждение", "Выберите порт для подключения.")
 
     def disconnect_button_clicked(self):
+        """
+        Отключение от COM порта при нажатии кнопки
+        """
         if self.serial is not None and self.serial.isOpen():
             self.serial.close()
             self.connect_button.setEnabled(True)
@@ -125,6 +136,9 @@ class MainWindow(QMainWindow):
             self.log_text_edit.append(f"[INFO] Отключено\n")
 
     def read_from_serial(self):
+        """
+        Чтение данных из порта
+        """
         if self.serial is not None and self.serial.isOpen():
             # далее есть костыли (!)
             if self.serial.canReadLine():
@@ -136,6 +150,9 @@ class MainWindow(QMainWindow):
                     self.process_data(text)
 
     def process_data(self, data):
+        """
+        Обработка поступивших данных и вывод
+        """
         if not self.all_checkbox.isChecked():
             for checkbox in self.prefix_checkboxes:
                 prefix = "+" + checkbox.text()
@@ -148,15 +165,24 @@ class MainWindow(QMainWindow):
             self.log_text_edit.append(text)
 
     def clear_log(self):
+        """
+        Очистка лога
+        """
         self.log_text_edit.clear()
 
     def showEvent(self, event):
+        """
+        При открытии программы
+        """
         if event.type() == event.Show:
             self.refresh_ports()
 
         super(MainWindow, self).showEvent(event)
 
     def closeEvent(self, event):
+        """
+        При закрытии программы
+        """
         if self.serial is not None and self.serial.isOpen():
             self.serial.close()
 
